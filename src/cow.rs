@@ -56,6 +56,18 @@ impl<'a> CowStr<'a> {
             }
         }
     }
+
+    pub fn is_owned(&self) -> bool {
+        matches!(self.inner, Cow::Owned(_))
+    }
+
+    pub fn is_borrowed(&self) -> bool {
+        matches!(self.inner, Cow::Borrowed(_))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
 }
 
 impl<'a> From<Cow<'a, str>> for CowStr<'a> {
@@ -108,40 +120,45 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(not(feature = "emoticons-emoji"))]
     fn test_cowstr() {
         let s = CowStr::from("Hello, world! That's all folks!");
+        assert!(s.is_borrowed());
+        assert!(!s.is_empty());
         assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
 
         let s = CowStr::from("Hello, \u{1F600}world!");
-        #[cfg(all(not(feature = "emoticons-emoji"), feature = "verbose"))]
+        assert!(s.is_owned()); // because of the emoji
+        #[cfg(feature = "verbose")]
         assert_eq!(s.as_ref(), "Hello, �world!");
-        #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
+        #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world!");
 
         let s = CowStr::new("Hello, \u{1F600}world!");
-        #[cfg(all(not(feature = "emoticons-emoji"), feature = "verbose"))]
+        assert!(s.is_owned());
+        #[cfg(feature = "verbose")]
         assert_eq!(s.as_ref(), "Hello, �world!");
-        #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
+        #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world!");
 
         // for coverage
         let s: CowStr<'static> = s.into_static();
         let s: String = s.into_owned();
         let s = CowStr::from(s);
+        #[cfg(not(feature = "verbose"))]
         assert_eq!(s.deref(), "Hello, world!");
+        #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world!");
+        #[cfg(not(feature = "verbose"))]
         assert_eq!(s.to_string(), "Hello, world!");
 
-        #[cfg(not(feature = "emoticons-emoji"))]
-        {
-            assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
+        assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
 
-            let s = CowStr::from("Hello, \u{1F600}\u{1F600}\u{1F600}world!".to_string());
-            #[cfg(not(feature = "verbose"))]
-            assert_eq!(s.as_ref(), "Hello, world!");
-            #[cfg(feature = "verbose")]
-            assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world!");
-        }
+        let s = CowStr::from("Hello, \u{1F600}\u{1F600}\u{1F600}world!".to_string());
+        #[cfg(not(feature = "verbose"))]
+        assert_eq!(s.as_ref(), "Hello, world!");
+        #[cfg(feature = "verbose")]
+        assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world!");
     }
 
     #[cfg(feature = "serde")]
