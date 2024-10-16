@@ -7,9 +7,21 @@ use crate::san::sanitize;
 ///
 /// This is guaranteed to be a valid UTF-8 string with only the characters that
 /// are enabled by feature.
+#[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CowStr<'a> {
     pub(crate) inner: Cow<'a, str>,
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for CowStr<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let cow: Cow<'de, str> = Cow::deserialize(deserializer)?;
+        Ok(cow.into())
+    }
 }
 
 impl<'a> CowStr<'a> {
@@ -96,6 +108,30 @@ mod tests {
             assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
 
             let s = CowStr::from("Hello, \u{1F600}\u{1F600}\u{1F600}world!".to_string());
+            #[cfg(not(feature = "verbose"))]
+            assert_eq!(s.as_ref(), "Hello, world!");
+            #[cfg(feature = "verbose")]
+            assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world!");
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_serde() {
+        let s = CowStr::from("Hello, world!");
+        let json = serde_json::to_string(&s).unwrap();
+        assert_eq!(json, r#""Hello, world!""#);
+
+        let s: CowStr = serde_json::from_str(&json).unwrap();
+        assert_eq!(s.as_ref(), "Hello, world!");
+
+        #[cfg(not(feature = "emoticons-emoji"))]
+        {
+            assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
+
+            let unsan = "Hello, \u{1F600}\u{1F600}\u{1F600}world!".to_string();
+            let s: CowStr = serde_json::from_str(&unsan).unwrap();
+
             #[cfg(not(feature = "verbose"))]
             assert_eq!(s.as_ref(), "Hello, world!");
             #[cfg(feature = "verbose")]
