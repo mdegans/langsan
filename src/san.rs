@@ -1,6 +1,8 @@
 /// Sanitization functions for crate string types.
 use crate::ranges::ENABLED_RANGES;
 
+const FORBIDDEN_EMOJI: &[char] = &['🏴'];
+
 /// Return `Some(string)` if the input `&str` has been sanitized, otherwise
 /// `None`. Sanitization is performed by removing any characters that are not in
 /// the enabled [`RANGES`] and then **removing any charachters in between the
@@ -19,9 +21,10 @@ pub fn sanitize(s: &str) -> Option<String> {
     let mut ret: Option<String> = None;
 
     for (i, c) in s.char_indices() {
-        if !ENABLED_RANGES
-            .iter()
-            .any(|range| range.contains(&(c as u32)))
+        if FORBIDDEN_EMOJI.contains(&c)
+            || !ENABLED_RANGES
+                .iter()
+                .any(|range| range.contains(&(c as u32)))
         {
             // Character is not in any of the enabled ranges
             if let Some(ret) = &mut ret {
@@ -108,5 +111,7 @@ mod tests {
             sanitize("https://wuzzi.net/copirate/󠀁󠁔󠁨󠁥󠀠󠁳󠁡󠁬󠁥󠁳󠀠󠁦󠁯󠁲󠀠󠁓󠁥󠁡󠁴󠁴󠁬󠁥󠀠󠁷󠁥󠁲󠁥󠀠󠁕󠁓󠁄󠀠󠀱󠀲󠀰󠀰󠀰󠀰󠁿"),
             Some("https://wuzzi.net/copirate/".to_string())
         );
+        // Black flag emoji is not enabled
+        assert_eq!(sanitize("🏴").unwrap(), "�");
     }
 }
