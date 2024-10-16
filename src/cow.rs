@@ -130,14 +130,14 @@ mod tests {
         let s = CowStr::from("Hello, \u{1F600}world!");
         assert!(s.is_owned()); // because of the emoji
         #[cfg(feature = "verbose")]
-        assert_eq!(s.as_ref(), "Hello, �world!");
+        assert_eq!(s.as_ref(), "Hello, [4 BYTES SANITIZED]world!");
         #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world!");
 
         let s = CowStr::new("Hello, \u{1F600}world!");
         assert!(s.is_owned());
         #[cfg(feature = "verbose")]
-        assert_eq!(s.as_ref(), "Hello, �world!");
+        assert_eq!(s.as_ref(), "Hello, [4 BYTES SANITIZED]world!");
         #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world!");
 
@@ -193,15 +193,20 @@ mod tests {
         #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
         #[cfg(feature = "verbose")]
-        assert_eq!(s.as_ref(), "Hello, world! That's all folks!�");
+        assert_eq!(
+            s.as_ref(),
+            "Hello, world! That's all folks![4 BYTES SANITIZED]"
+        );
 
         let mut s = CowStr::from("Hello, \u{1F600}world!");
         s.push_str(" That's all folks!\u{1F600}");
         #[cfg(all(not(feature = "emoticons-emoji"), feature = "verbose"))]
-        assert_eq!(s.as_ref(), "Hello, �world! That's all folks!�");
+        assert_eq!(
+            s.as_ref(),
+            "Hello, [4 BYTES SANITIZED]world! That's all folks![4 BYTES SANITIZED]"
+        );
         #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
         assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
-
 
         assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
 
@@ -211,6 +216,9 @@ mod tests {
         #[cfg(not(feature = "verbose"))]
         assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
         #[cfg(feature = "verbose")]
-        assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world! That's all folks!");
+        assert_eq!(
+            s.as_ref(),
+            "Hello, [12 BYTES SANITIZED]world! That's all folks!"
+        );
     }
 }

@@ -18,7 +18,8 @@ const FORBIDDEN_EMOJI: &[char] = &['🏴'];
 // possible to the chat agent so they can ask the user for clarification if
 // necessary.
 pub fn sanitize(s: &str) -> Option<String> {
-    let mut ret: Option<String> = None;
+    let mut first_invalid = None;
+    let mut last_invalid = None;
 
     for (i, c) in s.char_indices() {
         if FORBIDDEN_EMOJI.contains(&c)
@@ -26,56 +27,29 @@ pub fn sanitize(s: &str) -> Option<String> {
                 .iter()
                 .any(|range| range.contains(&(c as u32)))
         {
-            // Character is not in any of the enabled ranges
-            if let Some(ret) = &mut ret {
-                ret.push('�');
+            if let Some(_) = first_invalid {
+                last_invalid = Some(i);
                 continue;
             } else {
-                ret = Some(s[..i].to_string() + "�");
+                first_invalid = Some(i);
+                last_invalid = Some(i);
                 continue;
             }
-        }
-
-        if let Some(ret) = &mut ret {
-            ret.push(c);
         }
     }
 
-    if let Some(ret) = ret {
-        // The string had invalid characters. We need to remove any characters
-        // in between the first invalid character and the last invalid
-        // character.
-        let first_invalid = ret.find('�').unwrap();
-        let last_invalid = ret.rfind('�').unwrap();
+    if let (Some(first), Some(last)) = (first_invalid, last_invalid) {
+        let begin = &s[..first];
+        // Last is the next character after the last invalid character
+        let last = last + s[first..].chars().next().unwrap().len_utf8();
+        let end = &s[last..];
 
-        if first_invalid != last_invalid {
-            let begin = &ret[..first_invalid];
-            let end = &ret[last_invalid + 3..];
-
-            #[cfg(feature = "verbose")]
-            {
-                // 6 because the string "�" is 3 bytes long in UTF-8 and at this
-                // point we have already removed the first invalid character.
-                // The last invalid character is also removed.
-                let n_invalid_bytes = last_invalid - first_invalid + 6;
-                return Some(format!(
-                    "{}[{} BYTES SANITIZED]{}",
-                    begin, n_invalid_bytes, end
-                ));
-            }
-            #[cfg(not(feature = "verbose"))]
-            return Some(format!("{}{}", begin, end));
+        let sanitized = if cfg!(feature = "verbose") {
+            format!("{}[{} BYTES SANITIZED]{}", begin, last - first, end)
         } else {
-            // The string only has one invalid character. In the case of verbose
-            // we're already done. In the case of not verbose we need to remove
-            // the invalid character.
-            #[cfg(feature = "verbose")]
-            {
-                return Some(ret);
-            }
-            #[cfg(not(feature = "verbose"))]
-            return Some(ret.replace("�", ""));
-        }
+            format!("{}{}", begin, end)
+        };
+        Some(sanitized)
     } else {
         None
     }
@@ -94,7 +68,7 @@ mod tests {
         #[cfg(feature = "latin-1-supplement")]
         assert_eq!(sanitize("Ā"), None);
         #[cfg(all(not(feature = "latin-1-supplement"), feature = "verbose"))]
-        assert_eq!(sanitize("Ā"), Some("�".to_string()));
+        assert_eq!(sanitize("Ā"), Some("[2 BYTES SANITIZED]".to_string()));
         #[cfg(all(not(feature = "latin-1-supplement"), not(feature = "verbose")))]
         assert_eq!(sanitize("Ā"), Some("".to_string()));
         // A hidden sequence of characters with the verbose feature enabled. Use
@@ -103,7 +77,7 @@ mod tests {
         #[cfg(all(not(feature = "tags"), feature = "verbose"))]
         assert_eq!(
             sanitize("https://wuzzi.net/copirate/󠀁󠁔󠁨󠁥󠀠󠁳󠁡󠁬󠁥󠁳󠀠󠁦󠁯󠁲󠀠󠁓󠁥󠁡󠁴󠁴󠁬󠁥󠀠󠁷󠁥󠁲󠁥󠀠󠁕󠁓󠁄󠀠󠀱󠀲󠀰󠀰󠀰󠀰󠁿"),
-            Some("https://wuzzi.net/copirate/[120 BYTES SANITIZED]".to_string())
+            Some("https://wuzzi.net/copirate/[156 BYTES SANITIZED]".to_string())
         );
         // A hidden sequence of characters without the verbose feature enabled
         #[cfg(all(not(feature = "tags"), not(feature = "verbose")))]
@@ -112,6 +86,12 @@ mod tests {
             Some("https://wuzzi.net/copirate/".to_string())
         );
         // Black flag emoji is not enabled
-        assert_eq!(sanitize("🏴").unwrap(), "�");
+        #[cfg(not(feature = "verbose"))]
+        assert_eq!(sanitize("🏴").unwrap(), "");
+        // Sane emoji is not sanitized
+        #[cfg(feature = "emoji")]
+        assert_eq!(sanitize("👍"), None);
+        #[cfg(feature = "emoji")]
+        assert_eq!(sanitize("🙏"), None);
     }
 }
