@@ -140,12 +140,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let json_path = PathBuf::from(CRATE_ROOT).join(JSON_PATH);
     // Output `ranges.rs` file
     let ranges_path = PathBuf::from(CRATE_ROOT).join(RANGES_RS);
-    // Output `Cargo.toml` file
-    let cargo_toml_path = PathBuf::from(CRATE_ROOT).join("Cargo.toml");
+    // Output `Cargo.toml` file (breaks crates.io)
+    // let cargo_toml_path = PathBuf::from(CRATE_ROOT).join("Cargo.toml");
 
     let json = std::fs::read_to_string(json_path)?;
-    let (ranges_rs, cargo_toml) = gen_ranges(&json)?;
+    let (ranges_rs, _cargo_toml) = gen_ranges(&json)?;
     std::fs::write(ranges_path, ranges_rs)?;
-    std::fs::write(cargo_toml_path, cargo_toml)?;
+    // std::fs::write(cargo_toml_path, cargo_toml)?;
     Ok(())
 }
