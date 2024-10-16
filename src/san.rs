@@ -41,7 +41,7 @@ pub fn sanitize(s: &str) -> Option<String> {
     if let (Some(first), Some(last)) = (first_invalid, last_invalid) {
         let begin = &s[..first];
         // Last is the next character after the last invalid character
-        let last = last + s[first..].chars().next().unwrap().len_utf8();
+        let last = last + s[last..].chars().next().map(|c| c.len_utf8()).unwrap_or(0);
         let end = &s[last..];
 
         let sanitized = if cfg!(feature = "verbose") {

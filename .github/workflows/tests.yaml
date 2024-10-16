@@ -34,8 +34,11 @@ jobs:
       - name: Test with all features
         run: cargo test --verbose --all-features
 
-      - name: Test with all verbose feature
+      - name: Test with verbose feature
         run: cargo test --verbose --features verbose
+
+      - name: Test with emoji feature
+        run: cargo test --verbose --features emoji
 
       # This should only happen on push to main. PRs should not upload coverage.
       - name: Install llvm-cov
