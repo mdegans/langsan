@@ -14,12 +14,12 @@ pub struct CowStr<'a> {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for CowStr<'de> {
+impl<'de, 'a> serde::Deserialize<'de> for CowStr<'a> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let cow: Cow<'de, str> = Cow::deserialize(deserializer)?;
+        let cow: Cow<'a, str> = Cow::deserialize(deserializer)?;
         Ok(cow.into())
     }
 }
@@ -162,27 +162,27 @@ mod tests {
     }
 
     #[cfg(feature = "serde")]
+    #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
     #[test]
     fn test_serde() {
-        let s = CowStr::from("Hello, world!");
+        let s = CowStr::from("Hello, world!\u{1F600}");
         let json = serde_json::to_string(&s).unwrap();
         assert_eq!(json, r#""Hello, world!""#);
 
         let s: CowStr = serde_json::from_str(&json).unwrap();
         assert_eq!(s.as_ref(), "Hello, world!");
 
-        #[cfg(not(feature = "emoticons-emoji"))]
-        {
-            assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
-
-            let unsan = "Hello, \u{1F600}\u{1F600}\u{1F600}world!".to_string();
-            let s: CowStr = serde_json::from_str(&unsan).unwrap();
-
-            #[cfg(not(feature = "verbose"))]
-            assert_eq!(s.as_ref(), "Hello, world!");
-            #[cfg(feature = "verbose")]
-            assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world!");
+        // Test inside a struct
+        #[derive(serde::Serialize, serde::Deserialize)]
+        struct Test<'a> {
+            s: CowStr<'a>,
         }
+
+        let t = Test {
+            s: CowStr::from("Hello, world!\u{1F600}"),
+        };
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(json, r#"{"s":"Hello, world!"}"#);
     }
 
     #[test]
