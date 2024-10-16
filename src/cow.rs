@@ -41,6 +41,21 @@ impl<'a> CowStr<'a> {
     pub fn into_owned(self) -> String {
         self.inner.into_owned()
     }
+
+    /// Appends a string slice to the end of this `CowStr`. The string slice is
+    /// sanitized before being appended. This will take ownership of the string
+    /// if it's not already owned.
+    pub fn push_str(&mut self, s: &str) {
+        if let Some(sanitized) = sanitize(s) {
+            if !sanitized.is_empty() {
+                self.inner.to_mut().push_str(&sanitized);
+            }
+        } else {
+            if !s.is_empty() {
+                self.inner.to_mut().push_str(s);
+            }
+        }
+    }
 }
 
 impl<'a> From<Cow<'a, str>> for CowStr<'a> {
@@ -103,6 +118,20 @@ mod tests {
         #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
         assert_eq!(s.as_ref(), "Hello, world!");
 
+        let s = CowStr::new("Hello, \u{1F600}world!");
+        #[cfg(all(not(feature = "emoticons-emoji"), feature = "verbose"))]
+        assert_eq!(s.as_ref(), "Hello, �world!");
+        #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
+        assert_eq!(s.as_ref(), "Hello, world!");
+
+        // for coverage
+        let s: CowStr<'static> = s.into_static();
+        let s: String = s.into_owned();
+        let s = CowStr::from(s);
+        assert_eq!(s.deref(), "Hello, world!");
+        assert_eq!(s.as_ref(), "Hello, world!");
+        assert_eq!(s.to_string(), "Hello, world!");
+
         #[cfg(not(feature = "emoticons-emoji"))]
         {
             assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
@@ -137,5 +166,34 @@ mod tests {
             #[cfg(feature = "verbose")]
             assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world!");
         }
+    }
+
+    #[test]
+    #[cfg(not(feature = "emoticons-emoji"))]
+    fn test_push_str() {
+        let mut s = CowStr::from("Hello, world!");
+        s.push_str(" That's all folks!\u{1F600}");
+        #[cfg(not(feature = "verbose"))]
+        assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
+        #[cfg(feature = "verbose")]
+        assert_eq!(s.as_ref(), "Hello, world! That's all folks!�");
+
+        let mut s = CowStr::from("Hello, \u{1F600}world!");
+        s.push_str(" That's all folks!\u{1F600}");
+        #[cfg(all(not(feature = "emoticons-emoji"), feature = "verbose"))]
+        assert_eq!(s.as_ref(), "Hello, �world! That's all folks!�");
+        #[cfg(all(not(feature = "emoticons-emoji"), not(feature = "verbose")))]
+        assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
+
+
+        assert_eq!("\u{1F600}\u{1F600}\u{1F600}".bytes().len(), 12);
+
+        let mut s = CowStr::from("Hello, \u{1F600}\u{1F600}\u{1F600}world!".to_string());
+        s.push_str(" That's all folks!");
+
+        #[cfg(not(feature = "verbose"))]
+        assert_eq!(s.as_ref(), "Hello, world! That's all folks!");
+        #[cfg(feature = "verbose")]
+        assert_eq!(s.as_ref(), "Hello, [12 BYTES SANITIZED]world! That's all folks!");
     }
 }

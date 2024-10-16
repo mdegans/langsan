@@ -48,7 +48,7 @@ jobs:
 
       - name: Collect coverage data (including ignored tests)
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
-        run: cargo llvm-cov nextest --all-features --run-ignored all --lcov --output-path lcov.info
+        run: cargo llvm-cov nextest --lcov --output-path lcov.info
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push'
