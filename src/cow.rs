@@ -68,6 +68,16 @@ impl<'a> CowStr<'a> {
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+
+    pub fn into_inner(self) -> Cow<'a, str> {
+        self.inner
+    }
+}
+
+impl<'a> Into<Cow<'a, str>> for CowStr<'a> {
+    fn into(self) -> Cow<'a, str> {
+        self.into_inner()
+    }
 }
 
 impl<'a> From<Cow<'a, str>> for CowStr<'a> {
