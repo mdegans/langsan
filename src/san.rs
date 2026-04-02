@@ -3,6 +3,44 @@ use crate::ranges::ENABLED_RANGES;
 
 const FORBIDDEN_EMOJI: &[char] = &['🏴'];
 
+/// Invisible and bidirectional control characters that are denied even when
+/// their containing Unicode block is enabled. These characters can be used
+/// for hidden text attacks (invisible to humans, visible to models).
+///
+/// Enable the `bidi` feature to allow these characters (needed for RTL
+/// language support).
+#[cfg(not(feature = "bidi"))]
+const FORBIDDEN_BIDI: &[char] = &[
+    '\u{200B}', // Zero Width Space
+    '\u{200C}', // Zero Width Non-Joiner
+    '\u{200D}', // Zero Width Joiner
+    '\u{200E}', // Left-to-Right Mark
+    '\u{200F}', // Right-to-Left Mark
+    '\u{202A}', // Left-to-Right Embedding
+    '\u{202B}', // Right-to-Left Embedding
+    '\u{202C}', // Pop Directional Formatting
+    '\u{202D}', // Left-to-Right Override
+    '\u{202E}', // Right-to-Left Override
+    '\u{2060}', // Word Joiner
+    '\u{2061}', // Function Application (invisible)
+    '\u{2062}', // Invisible Times
+    '\u{2063}', // Invisible Separator
+    '\u{2064}', // Invisible Plus
+    '\u{2066}', // Left-to-Right Isolate
+    '\u{2067}', // Right-to-Left Isolate
+    '\u{2068}', // First Strong Isolate
+    '\u{2069}', // Pop Directional Isolate
+    '\u{206A}', // Inhibit Symmetric Swapping (deprecated)
+    '\u{206B}', // Activate Symmetric Swapping (deprecated)
+    '\u{206C}', // Inhibit Arabic Form Shaping (deprecated)
+    '\u{206D}', // Activate Arabic Form Shaping (deprecated)
+    '\u{206E}', // National Digit Shapes (deprecated)
+    '\u{206F}', // Nominal Digit Shapes (deprecated)
+];
+
+#[cfg(feature = "bidi")]
+const FORBIDDEN_BIDI: &[char] = &[];
+
 /// Return `Some(string)` if the input `&str` has been sanitized, otherwise
 /// `None`. Sanitization is performed by removing any characters that are not in
 /// the enabled [`RANGES`] and then **removing any charachters in between the
@@ -23,6 +61,7 @@ pub fn sanitize(s: &str) -> Option<String> {
 
     for (i, c) in s.char_indices() {
         if FORBIDDEN_EMOJI.contains(&c)
+            || FORBIDDEN_BIDI.contains(&c)
             || !ENABLED_RANGES
                 .iter()
                 .any(|range| range.contains(&(c as u32)))
@@ -93,5 +132,30 @@ mod tests {
         assert_eq!(sanitize("👍"), None);
         #[cfg(feature = "emoji")]
         assert_eq!(sanitize("🙏"), None);
+    }
+
+    #[test]
+    #[cfg(all(not(feature = "bidi"), feature = "general-punctuation"))]
+    fn test_bidi_denied_with_general_punctuation() {
+        // Em dash should pass (it's in general-punctuation which is a default)
+        assert!(
+            sanitize("hello \u{2014} world").is_none(),
+            "em dash should be allowed"
+        );
+        // Zero-width space should be stripped even though general-punctuation is enabled
+        assert!(
+            sanitize("hello\u{200B}world").is_some(),
+            "zero-width space should be denied"
+        );
+        // RTL override should be stripped
+        assert!(
+            sanitize("hello\u{202E}world").is_some(),
+            "RTL override should be denied"
+        );
+        // LTR mark should be stripped
+        assert!(
+            sanitize("hello\u{200E}world").is_some(),
+            "LTR mark should be denied"
+        );
     }
 }

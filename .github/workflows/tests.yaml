@@ -40,6 +40,9 @@ jobs:
       - name: Test with emoji feature
         run: cargo test --verbose --features emoji
 
+      - name: Test with no default features
+        run: cargo test --verbose --no-default-features
+
       # This should only happen on push to main. PRs should not upload coverage.
       - name: Install llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
