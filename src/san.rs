@@ -135,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "bidi"))]
+    #[cfg(all(not(feature = "bidi"), feature = "general-punctuation"))]
     fn test_bidi_denied_with_general_punctuation() {
         // Em dash should pass (it's in general-punctuation which is a default)
         assert!(
