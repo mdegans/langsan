@@ -125,6 +125,46 @@ impl std::fmt::Display for CowStr<'_> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// PartialEq with string types
+// ---------------------------------------------------------------------------
+
+impl PartialEq<str> for CowStr<'_> {
+    fn eq(&self, other: &str) -> bool {
+        self.inner.as_ref() == other
+    }
+}
+
+impl PartialEq<&str> for CowStr<'_> {
+    fn eq(&self, other: &&str) -> bool {
+        self.inner.as_ref() == *other
+    }
+}
+
+impl PartialEq<String> for CowStr<'_> {
+    fn eq(&self, other: &String) -> bool {
+        self.inner.as_ref() == other.as_str()
+    }
+}
+
+impl PartialEq<CowStr<'_>> for str {
+    fn eq(&self, other: &CowStr<'_>) -> bool {
+        self == other.inner.as_ref()
+    }
+}
+
+impl PartialEq<CowStr<'_>> for &str {
+    fn eq(&self, other: &CowStr<'_>) -> bool {
+        *self == other.inner.as_ref()
+    }
+}
+
+impl PartialEq<CowStr<'_>> for String {
+    fn eq(&self, other: &CowStr<'_>) -> bool {
+        self.as_str() == other.inner.as_ref()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,5 +270,25 @@ mod tests {
             s.as_ref(),
             "Hello, [12 BYTES SANITIZED]world! That's all folks!"
         );
+    }
+
+    #[test]
+    fn test_partial_eq_str() {
+        let s = CowStr::from("hello");
+        // CowStr == str
+        assert!(s == *"hello");
+        // CowStr == &str
+        assert!(s == "hello");
+        // CowStr == String
+        assert!(s == String::from("hello"));
+        // str == CowStr
+        assert!(*"hello" == s);
+        // &str == CowStr
+        assert!("hello" == s);
+        // String == CowStr
+        assert!(String::from("hello") == s);
+        // Negative cases
+        assert!(s != "world");
+        assert!(s != String::from("world"));
     }
 }
