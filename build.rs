@@ -234,7 +234,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ranges: Vec<NamedRange> = serde_json::from_str(&json)?;
 
     let (ranges_rs, _cargo_toml) = gen_ranges(&ranges)?;
-    std::fs::write(ranges_path, ranges_rs)?;
+    // Only rewrite the committed ranges.rs when it actually changed. In a
+    // packaged crate it always matches what would be regenerated, so this
+    // keeps the build working where the source tree is read-only (docs.rs).
+    if std::fs::read_to_string(&ranges_path).ok().as_deref()
+        != Some(ranges_rs.as_str())
+    {
+        std::fs::write(ranges_path, ranges_rs)?;
+    }
     // std::fs::write(cargo_toml_path, cargo_toml)?;
 
     // The allow-set table is feature-resolved, so it goes in OUT_DIR.
